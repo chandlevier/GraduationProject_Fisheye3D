@@ -11,6 +11,9 @@ import os
 import sys
 import numpy as np
 import pygame
+import carla
+import random
+import time
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -20,10 +23,7 @@ try:
 except IndexError:
     pass
 
-import carla
 
-import random
-import time
 
 IM_WIDTH = 640
 IM_HEIGHT = 480
@@ -35,12 +35,12 @@ def process_image(image):
     array = array[:, :, ::-1]
     surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
     my_display.blit(surface, (0, 0))
+    image.save_to_disk('/home/piaozx/carla_output/%06d.jpg' % image.frame)
     return surface
 
 
-
-
 actor_list = []
+
 
 try:
     # #######################################################
@@ -74,6 +74,10 @@ try:
     
     actor_list.append(vehicle)
     
+    # create directory for outputs
+    output_path = '/home/piaozx/carla_output'
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
     
     camera_bp = blueprint_library.find('sensor.camera.rgb')
     #change the dimension of the image
@@ -82,35 +86,33 @@ try:
     camera_bp.set_attribute("fov", "110")
     #camera_bp.set_attribute('sensor_tick', '1.0')
     
+    #设定传感器的相对位置(x方向偏移2.5，z方向偏移0.7，y方向偏移)
+    #调整传感器的角度可在carla.Transform里添加carla.Rotation(roll,pitch,yew),分别代表x,y,z轴
+    #不设置角度当前传感器与车头前向保持一致
     camera_transform = carla.Transform(carla.Location(x=2.5, z=0.7))
+    #将传感器附在小车上
     camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
-    
+    #传感器开始监听
     camera.listen(lambda image: process_image(image))
-#    camera.listen(lambda image: image.save_to_disk(os.path.join(output_path, '%06d.png' % image.frame)))
+    #传感器实时存储图像
+    #camera.listen(lambda image: image.save_to_disk(os.path.join(output_path, '%06d.png' % image.frame)))
+    #camera.listen(lambda image: image.save_to_disk('/home/文档/carla-code/output/%06d.png' % image.frame))
     actor_list.append(camera)
     
+    
+    # #######################################################
+    # === 3, 设定观察者位置，保证小车一直在视图内 ===
     #spectator
     while True:
-	    spectator = world.get_spectator()
-	    transform = vehicle.get_transform()
-	    spectator.set_transform(carla.Transform(transform.location + carla.Location(z=20),carla.Rotation(pitch=-90)))
-	    pygame.display.update()  # 对显示窗口进行更新，默认窗口全部重绘
-	    time.sleep(0.01)
+        spectator = world.get_spectator()
+        transform = vehicle.get_transform()
+        spectator.set_transform(carla.Transform(transform.location + carla.Location(z=20),carla.Rotation(pitch=-90)))
+        pygame.display.update()  # 对pygame显示窗口进行更新，默认窗口全部重绘
+        time.sleep(0.005)
+        for event in pygame.event.get():  # 遍历所有用户操作事件
+            if event.type == pygame.QUIT:  # 获得事件类型，判断是否为关闭窗口
+                sys.exit()   # 用于结束程序的运行并退出
 
-        
-#    while True:  # 无限循环，确保窗口一直显示
-#
-#        for event in pygame.event.get():  # 遍历所有用户操作事件
-#
-#            if event.type == pygame.QUIT:  # 获得事件类型，判断是否为关闭窗口
-#
-#                sys.exit()   # 用于结束程序的运行并退出
-
-        
-    
-    
-    time.sleep(15)
-    
     
 finally:
     pygame.quit()  # 退出pygame
