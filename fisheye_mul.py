@@ -100,7 +100,7 @@ def main(args):
         sensor_list.append(cam01)
 
         cam02 = world.spawn_actor(cam_bp, carla.Transform(carla.Location(y=1, z=args.sensor_h),carla.Rotation(yaw=90)), attach_to=ego_vehicle)
-        cam02.listen(lambda data: sensor_callback(data, sensor_queue, "rgb_left"))
+        cam02.listen(lambda data: sensor_callback(data, sensor_queue, "rgb_right"))
         sensor_list.append(cam02)
 
         cam03 = world.spawn_actor(cam_bp, carla.Transform(carla.Location(x=-1, z=args.sensor_h), carla.Rotation(yaw=180)), attach_to=ego_vehicle)
@@ -108,7 +108,7 @@ def main(args):
         sensor_list.append(cam03)
 
         cam04 = world.spawn_actor(cam_bp, carla.Transform(carla.Location(y=-1, z=args.sensor_h), carla.Rotation(yaw=270)), attach_to=ego_vehicle)
-        cam04.listen(lambda data: sensor_callback(data, sensor_queue, "rgb_back"))
+        cam04.listen(lambda data: sensor_callback(data, sensor_queue, "rgb_left"))
         sensor_list.append(cam04)
         #-------------------------- 传感器设置完毕 --------------------------#
 
