@@ -1,5 +1,4 @@
-# GraduationProject_Fisheye3D
-需要carla达成的功能：
-1. 可以接收单个车辆的鱼眼相机图像
-2. 仿真出多个停靠车辆，同时加入其他移动目标，例如移动车辆或行人等，接收多个停靠车辆鱼眼相机图像
-3. 用opencv对接收到的图像作初步处理
+# GraduationProject_Calibration
+存放一些专门用于去畸变的算法
+
+含有棋盘格矫正法、经纬度矫正法
