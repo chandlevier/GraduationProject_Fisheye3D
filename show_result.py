@@ -291,4 +291,4 @@ def show_multi_modality_result(bev_file, frame, cam, img,
     if pred_bboxes is not None:
         pred_img = draw_bbox(
             pred_bboxes, img, proj_mat, bev_file, frame, cam, img_metas, color=pred_bbox_color)
-        mmcv.imwrite(pred_img, osp.join(result_path, f'{filename}_pred.png'))
+        mmcv.imwrite(pred_img, osp.join(result_path, cam, f'{filename}_pred.png'))
