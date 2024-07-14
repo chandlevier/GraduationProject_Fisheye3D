@@ -1,0 +1,97 @@
+
+        with open("prediction_EUC_evaluation.txt", "w") as file_read:
+            file_read.write("frame\tconfidence\tprecision\trecall\t\tmethod\n")
+            
+        
+        eucap_list = []
+
+
+
+def EUC_calculate(gt_boxes, pred_boxes, euc_score, frame):
+    for i in range(len(pred_boxes)):
+        pred_boxes[i].distance = 2000
+        for j in range(len(gt_boxes)):
+            # 取欧式距离最小者的真值框id作为预测框的结果id，此时直接计算出来的d应该是实际距离的10倍
+            # 如果希望距离足够近才算是TP的话，我感觉euc距离应该是0~1m，euc_score=0~10
+            d = pow(pow((pred_boxes[i].x-gt_boxes[j].x),2)+pow((pred_boxes[i].z-gt_boxes[j].z),2), 0.5)
+            if d <= pred_boxes[i].distance:
+                pred_boxes[i].distance = d
+                pred_boxes[i].pred_id = gt_boxes[j].num
+
+
+# 包含融合操作与融合后指标计算操作
+def EUC_merge(gt_bboxes, pred_boxes, euc_thres, frame, prec, rec, score, score_method="score1", merge_method="mergence1"):
+    bboxes = copy.deepcopy(pred_boxes)
+    image = np.zeros((1024, 1024, 3), np.uint8)
+    image.fill(255)
+    font = cv2.FONT_HERSHEY_COMPLEX
+    # 首先消除检测框参数列表中，iou值为0或者低于阈值的无效检测框
+    valid_bboxes = []
+    for i in range(len(bboxes)):
+        if bboxes[i].distance <= euc_thres:
+            valid_bboxes.append(bboxes[i])
+    # 挑选置信度
+    if score_method == "score1":
+        valid_bboxes = score1(valid_bboxes)
+    elif score_method == "score2":
+        valid_bboxes = score2(valid_bboxes)
+    # 将pred_id相同的检测框进行融合
+    final_boxes = []
+    if len(valid_bboxes) == 1:
+        final_boxes.append(valid_bboxes[0])
+    else:
+        for i in range(len(valid_bboxes)-1):
+            if valid_bboxes[i].flag == "True":
+                for j in range(i+1, len(valid_bboxes)):
+                    if valid_bboxes[i].pred_id == valid_bboxes[j].pred_id:
+                        # 需要融合的参数有：中心点坐标xyz、尺寸lwh、yaw，然后需要重新测一遍iou
+                        # 挑选融合方案
+                        if merge_method == "mergence1":
+                            valid_bboxes[i] = mergence1(valid_bboxes[i], valid_bboxes[j])
+                        elif merge_method == "mergence2":
+                            valid_bboxes[i] = mergence2(valid_bboxes[i], valid_bboxes[j])
+                        valid_bboxes[j].flag = "False"
+                valid_bboxes[i].flag = "False"
+                final_boxes.append(valid_bboxes[i])    
+    # 开始画融合检测框后的鸟瞰图
+    # image_vis.create_egobev(image, bboxes[0].ego_loc, "cam", font)
+    # for i in range(len(final_boxes)):
+    #     u1, u2, u3, u4, v1, v2, v3, v4 = final_boxes[i].coord
+    #     image_vis.bev_printer(image, u1, u2, u3, u4, v1, v2, v3, v4, font, final_boxes[i].num+1, final_boxes[i].score)
+    # camera_script.mkdir_folder('/home/piaozx/文档/carla-code/carlafisheye/', "dis_bev_eucmerge", None)
+    # bev_filename = "/home/piaozx/文档/carla-code/carlafisheye/dis_bev_eucmerge/" + "frame" + str(frame) + "_MBEV.png"
+    # cv2.imwrite(bev_filename, image)
+    # 真值数量应为距离目标车辆15m真实世界距离范围内的目标
+    # 换算成bev视图上的距离(x10)的话，应该是距离ego_loc 150m范围内的目标
+    GT = gtrange_calculate(gt_bboxes)
+    TP = len(final_boxes)
+    FP = EUCmergedFP_calculate(bboxes, euc_thres)
+    FN = GT - TP - FP
+    if TP == 0 and FP == 0:
+        precision = 0
+    else:
+        precision = TP / (TP + FP)
+    if FN <= 0 :
+        recall = 1
+    else:
+        recall = TP / (TP + FN)
+    with open("prediction_EUC_evaluation.txt", "a") as file_read:
+        # file_read.write("merged\tEUC precision = %f.\n" % precision)
+        # file_read.write("merged\tEUC recall = %f.\n" % recall)
+        file_read.write("%i\t%f\t%f\t%f\t%s\n" % (frame, euc_thres, precision, recall, score_method+merge_method))
+    prec.append(precision)
+    rec.append(recall)
+    return final_boxes  # 最终融合的检测框参数列表
+    
+def EUCmergedFP_calculate(bboxes, euc_score):
+    invalid_bboxes = []
+    for i in range(len(bboxes)):
+        if bboxes[i].distance > euc_score:
+            invalid_bboxes.append(bboxes[i])
+    FP_bboxes = []
+    for i in range(len(invalid_bboxes)):
+        FP_bboxes.append(invalid_bboxes[i].pred_id)
+    # 计数FP_bboxes中有多少个不重复的数字
+    # set()将列表中的元素无重复的抽取出来，赋值给另一个列表
+    FP = len(set(FP_bboxes))
+    return FP
